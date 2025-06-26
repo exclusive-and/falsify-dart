@@ -1,0 +1,78 @@
+import 'dart:core';
+
+import 'gen.dart';
+import 'sample.dart';
+
+Explanation<P, N> shrink<A, P, N>(Gen<A> gen, (P, Iterable<SampleTree>) start,
+    IsValidShrink<P, N> Function(A) prop) {
+  var history = List<P>.empty(growable: true);
+
+  List<SampleTree> greedy(List<N> counterexamples, List<SampleTree> xs) {
+    final candidates = xs.map((st) => gen.runGen(st));
+
+    for (final (a, shrunk) in candidates) {
+      switch (prop(a)) {
+        case InvalidShrink(counterexample: final n):
+          counterexamples.add(n);
+        case ValidShrink(shrunk: final p):
+          history.add(p);
+          return shrunk.toList();
+      }
+    }
+
+    return [];
+  }
+
+  var (initial, shrunk) = start;
+  var counterexamples = List<N>.empty(growable: true);
+
+  while (!shrunk.isEmpty) {
+    counterexamples = List.empty(growable: true);
+    shrunk = greedy(counterexamples, shrunk.toList());
+  }
+  
+  return Explanation(initial, history, counterexamples);
+}
+
+class Explanation<P, N> {
+  Explanation(this.initial, this.history, this.counterexamples);
+
+  final P initial;
+  final List<P> history;
+  final List<N> counterexamples;
+}
+
+sealed class IsValidShrink<P, N> {}
+
+class ValidShrink<P, N> implements IsValidShrink<P, N> {
+  ValidShrink(this.shrunk);
+  final P shrunk;
+}
+
+class InvalidShrink<P, N> implements IsValidShrink<P, N> {
+  InvalidShrink(this.counterexample);
+  final N counterexample;
+}
+
+Gen<A> shrinkToOneOf<A>(A x, List<A> xs) {
+  Iterable<BigInt> shrinker(Sample x) => switch (x) {
+        Shrunk(value: _) => [],
+        NotShrunk(value: _) => [
+            for (int i = 0; i < xs.length; i++) BigInt.from(i)
+          ]
+      };
+
+  A aux(Sample i) => switch (i) {
+        Shrunk(value: final i) => xs[i.toInt()],
+        NotShrunk(value: _) => x
+      };
+
+  return primWith(shrinker).map(aux);
+}
+
+Gen<A> firstThen<A>(A x, A y) => shrinkToOneOf(x, [y]);
+
+typedef Marked<A> = (bool, Gen<A>);
+
+Gen<Marked<A>> mark<A>(Gen<A> gen) =>
+    firstThen(true, false).map((marked) => (marked, gen));
