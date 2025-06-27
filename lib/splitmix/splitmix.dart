@@ -5,14 +5,14 @@ import 'dart:core';
 class SplitMix {
   SplitMix(this.seed, this.gamma);
 
-  BigInt seed;
+  final BigInt seed;
   final BigInt gamma;
 
   /// Generate a psuedorandom 64-bit integer.
 
-  BigInt nextWord64() {
-    this.seed = maskU64 & (this.seed + gamma);
-    return mix64(seed);
+  (BigInt, SplitMix) nextWord64() {
+    final seed = maskU64 & (this.seed + gamma);
+    return (mix64(seed), SplitMix(seed, gamma));
   }
 
   /// Split the PRNG into two uncorrelated PRNGs.
