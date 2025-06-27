@@ -80,28 +80,3 @@ class ShrunkTo<P, N> implements ShrinkStep<P, N> {
   final P value;
   final Iterable<SampleTree> shrunk;
 }
-
-/*
-Gen<A> shrinkToOneOf<A>(A x, List<A> xs) {
-  Iterable<BigInt> shrinker(Sample x) => switch (x) {
-        Shrunk(value: _) => [],
-        NotShrunk(value: _) => [
-            for (int i = 0; i < xs.length; i++) BigInt.from(i)
-          ]
-      };
-
-  A aux(Sample i) => switch (i) {
-        Shrunk(value: final i) => xs[i.toInt()],
-        NotShrunk(value: _) => x
-      };
-
-  return primWith(shrinker).map(aux);
-}
-
-Gen<A> firstThen<A>(A x, A y) => shrinkToOneOf(x, [y]);
-
-typedef Marked<A> = (bool, Gen<A>);
-
-Gen<Marked<A>> mark<A>(Gen<A> gen) =>
-    firstThen(true, false).map((marked) => (marked, gen));
-*/

@@ -77,19 +77,3 @@ SampleTree fromPRNG(SplitMix prng) {
   final sample = NotShrunk(prng.nextWord64().$1);
   return SampleTree1(sample, lazyLeft, lazyRight);
 }
-
-void main() {
-  final rng = SplitMix.fromSeed(BigInt.from(0));
-
-  final st0 = fromPRNG(rng);
-  final st1 = st0.left();
-  final st2 = st0.right();
-
-  print(st0.next.value);
-  print(st1.next.value);
-  print(st2.next.value);
-
-  final st3 = st1.right();
-
-  print(st3.next.value);
-}
