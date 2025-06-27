@@ -23,20 +23,6 @@ class FunctionalGen<A> implements Gen<A> {
   (A, Iterable<SampleTree>) runGen(SampleTree st) => _runGen(st);
 }
 
-class PrimGen implements Gen<Sample> {
-  PrimGen(this.shrink);
-
-  final Iterable<BigInt> Function(Sample) shrink;
-
-  (Sample, Iterable<SampleTree>) runGen(SampleTree st) {
-    final s = st.next;
-    return (
-      s,
-      this.shrink(s).map((t) => SampleTree1(Shrunk(t), st.left, st.right))
-    );
-  }
-}
-
 class MapGen<A, B> implements Gen<B> {
   MapGen(this.mx, this.f);
 
@@ -179,7 +165,28 @@ extension SelectiveIfGen on Gen<bool> {
   Gen<A> ifS<A>(Gen<A> t, Gen<A> f) => ChoiceGen(this, t, f);
 }
 
-Gen<A> choose<A>(Gen<A> mx, Gen<A> my) => genBool(true).ifS(mx, my);
+class ShrinkToOneOfGen<A> implements Gen<A> {
+  ShrinkToOneOfGen(this.x, this.xs);
+
+  final A x;
+  final List<A> xs;
+
+  (A, Iterable<SampleTree>) runGen(SampleTree st) => switch (st.next) {
+        Shrunk(value: final i) => (xs[i.toInt()], []),
+        NotShrunk(value: _) => (
+            x,
+            [
+              for (int i = 0; i < xs.length; i++)
+                SampleTree1(Shrunk(BigInt.from(i)), st.left, st.right)
+            ]
+          ),
+      };
+}
+
+Gen<A> shrinkToOneOf<A>(A x, Iterable<A> xs) =>
+    ShrinkToOneOfGen(x, xs.toList());
+
+Gen<A> firstThen<A>(A x, A y) => shrinkToOneOf(x, [y]);
 
 class BoolGen implements Gen<bool> {
   BoolGen(this.target);
@@ -199,6 +206,22 @@ class BoolGen implements Gen<bool> {
 }
 
 Gen<bool> genBool(bool target) => BoolGen(target);
+
+Gen<A> choose<A>(Gen<A> mx, Gen<A> my) => genBool(true).ifS(mx, my);
+
+class PrimGen implements Gen<Sample> {
+  PrimGen(this.shrink);
+
+  final Iterable<BigInt> Function(Sample) shrink;
+
+  (Sample, Iterable<SampleTree>) runGen(SampleTree st) {
+    final s = st.next;
+    return (
+      s,
+      this.shrink(s).map((t) => SampleTree1(Shrunk(t), st.left, st.right))
+    );
+  }
+}
 
 class RangeGen implements Gen<BigInt> {
   RangeGen(this.min, this.max);
@@ -224,29 +247,6 @@ Gen<BigInt> inBigRange(BigInt a, BigInt b) => RangeGen(a, b);
 
 Gen<int> inRange(int a, int b) =>
     inBigRange(BigInt.from(a), BigInt.from(b)).map((x) => x.toInt());
-
-class ShrinkToOneOfGen<A> implements Gen<A> {
-  ShrinkToOneOfGen(this.x, this.xs);
-
-  final A x;
-  final List<A> xs;
-
-  (A, Iterable<SampleTree>) runGen(SampleTree st) => switch (st.next) {
-        Shrunk(value: final i) => (xs[i.toInt()], []),
-        NotShrunk(value: _) => (
-            x,
-            [
-              for (int i = 0; i < xs.length; i++)
-                SampleTree1(Shrunk(BigInt.from(i)), st.left, st.right)
-            ]
-          ),
-      };
-}
-
-Gen<A> shrinkToOneOf<A>(A x, Iterable<A> xs) =>
-    ShrinkToOneOfGen(x, xs.toList());
-
-Gen<A> firstThen<A>(A x, A y) => shrinkToOneOf(x, [y]);
 
 typedef Marked<A> = ({bool getMark, Gen<A> unmark});
 
