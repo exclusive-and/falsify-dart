@@ -73,6 +73,20 @@ extension MonadList<A> on Iterable<A> {
   Iterable<B> bind<B>(Iterable<B> Function(A) k) => this.expand(k);
 }
 
+///
+
+Iterable<A> catMaybes<A>(Iterable<Maybe<A>> xs) sync* {
+  final it = xs.iterator;
+  while (it.moveNext()) {
+    switch (it.current) {
+      case Nothing():
+        continue;
+      case Just(value: final x):
+        yield x;
+    }
+  }
+}
+
 /// Zip a pair of lists elementwise into a list of pairs.
 
 Iterable<(A, B)> zip<A, B>(Iterable<A> xs, Iterable<B> ys) sync* {
@@ -90,7 +104,7 @@ extension ScatterGather<A> on List<A> {
 
   /// Create a copy of this list, with the elements at each index substituted
   /// for an element from the other list.
-  /// 
+  ///
   /// Indices must be in ascending order.
 
   Iterable<A> scatter(Iterable<A> other, Iterable<int> indices) {
@@ -102,11 +116,11 @@ extension ScatterGather<A> on List<A> {
 
 /// Haskell-ish prototypical definitions for [Functor], [Applicative], and
 /// [Monad].
-/// 
+///
 /// Without HKTs and typeclasses, we can't properly implement instances of
 /// these concretely. Instead, we implement extension methods that mirror the
 /// spiritual type laws described here. See [Maybe] and [Either].
-/// 
+///
 /// There's also the Selective typeclass, but it requires HKTs to even be
 /// expressed in a single definition.
 ///
