@@ -127,14 +127,19 @@ extension ScatterGather<A> on List<A> {
 /// These definitions are here solely to serve as rough outlines or templates.
 
 mixin Functor<A> {
-  Functor<B> map<B>(B Function(A));
+  Functor<B> map<B>(B Function(A) f);
 }
 
 mixin Applicative<A> implements Functor<A> {
-  Applicative<A> pure<A>(A x);
-  Applicative<B> ap<B>(Applicative<B Function(A)> mf);
+  Applicative<B> pure<B>(B x);
+  Applicative<B> ap<B>(covariant Applicative<B Function(A)> mf);
 }
 
 mixin Monad<A> implements Applicative<A> {
-  Monad<B> bind<B>(Monad<B> Function(A));
+  Monad<B> bind<B>(covariant Monad<B> Function(A));
+
+  Monad<B> map<B>(B Function(A) f) => this.bind((a) => pure(f(a)) as Monad<B>);
+
+  Monad<B> ap<B>(covariant Monad<B Function(A)> mf) =>
+      this.bind((a) => mf.bind((f) => pure(f(a)) as Monad<B>));
 }
