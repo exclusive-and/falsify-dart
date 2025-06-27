@@ -6,7 +6,7 @@ abstract interface class RunGen<T> {
   (T, Iterable<SampleTree>) runGen(SampleTree st);
 }
 
-Explanation<P, N> shrink<A, P, N>(RunGen<A> gen,
+Explanation<P, N> shrink<A, P, N>(RunGen<A> gen, int limit,
     (P, Iterable<SampleTree>) start, IsValidShrink<P, N> Function(A) prop) {
   var history = List<P>.empty(growable: true);
 
@@ -29,7 +29,8 @@ Explanation<P, N> shrink<A, P, N>(RunGen<A> gen,
   };
 
   final go = (Iterable<SampleTree> shrunk) {
-    while (!shrunk.isEmpty) {
+    while (!shrunk.isEmpty && limit > 0) {
+      limit--;
       switch (greedy(shrunk)) {
         case DoneShrinking(counterexamples: final ns):
           return ns;
