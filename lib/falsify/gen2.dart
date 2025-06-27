@@ -266,8 +266,7 @@ class ListGen<A> implements Gen<Iterable<A>> {
     final (len, ls) = inRange(0, length).runGen(st.left());
 
     final gen1 = List.filled(len, mark(gen)).sequence();
-    final gen2 =
-        gen1.bind((g) => g.traverse<Maybe<A>>(keepIfMarked)).map(catMaybes);
+    final gen2 = gen1.bind((g) => g.traverse(keepIfMarked)).map(catMaybes);
     final (xs, rs) = gen2.runGen(st.right());
 
     return (xs, st.combineShrunk(ls, rs));
