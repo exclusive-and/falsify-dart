@@ -1,5 +1,4 @@
 import 'dart:core';
-import 'package:falsify/prelude.dart';
 import 'package:falsify/splitmix.dart';
 
 sealed class Sample {
@@ -47,27 +46,27 @@ class Minimal implements SampleTree {
 extension CombineShrunk on SampleTree {
   Iterable<SampleTree> combineShrunk(
       Iterable<SampleTree> ls, Iterable<SampleTree> rs) {
-    return shortcut(concat([
-      if (this.left() is Minimal)
-        []
-      else
-        ls.map((l) => SampleTree1(this.next, () => l, this.right)),
-      if (this.right() is Minimal)
-        []
-      else
-        rs.map((r) => SampleTree1(this.next, this.left, () => r))
-    ]));
-  }
+    final ls1 = switch (left()) {
+      Minimal() => Iterable<SampleTree>.empty(),
+      _ => ls.map(
+          (l) => SampleTree1(this.next, () => l, this.right) as SampleTree),
+    };
 
-  static Iterable<SampleTree> shortcut(Iterable<SampleTree> st) {
-    if (st.isEmpty) {
-      return [];
-    } else {
-      return concat([
-        [Minimal()],
-        st
-      ]);
-    }
+    final rs1 = switch (right()) {
+      Minimal() => Iterable<SampleTree>.empty(),
+      _ =>
+        rs.map((r) => SampleTree1(this.next, this.left, () => r) as SampleTree),
+    };
+
+    return shortcut(ls1.followedBy(rs1));
+  }
+}
+
+Iterable<SampleTree> shortcut(Iterable<SampleTree> st) {
+  if (st.isEmpty) {
+    return [];
+  } else {
+    return [Minimal() as SampleTree].followedBy(st);
   }
 }
 
@@ -75,7 +74,7 @@ SampleTree fromPRNG(SplitMix prng) {
   final (l, r) = prng.split();
   final lazyLeft = () => fromPRNG(l);
   final lazyRight = () => fromPRNG(r);
-  final sample = NotShrunk(prng.nextWord64());
+  final sample = NotShrunk(prng.nextWord64().$1);
   return SampleTree1(sample, lazyLeft, lazyRight);
 }
 

@@ -1,14 +1,19 @@
 import 'dart:core';
 
-import 'gen.dart';
 import 'sample.dart';
 
-Explanation<P, N> shrink<A, P, N>(Gen<A> gen, (P, Iterable<SampleTree>) start,
-    IsValidShrink<P, N> Function(A) prop) {
+abstract interface class RunGen<T> {
+  (T, Iterable<SampleTree>) runGen(SampleTree st);
+}
+
+Explanation<P, N> shrink<A, P, N>(RunGen<A> gen,
+    (P, Iterable<SampleTree>) start, IsValidShrink<P, N> Function(A) prop) {
   var history = List<P>.empty(growable: true);
 
-  List<SampleTree> greedy(List<N> counterexamples, List<SampleTree> xs) {
+  final greedy = (Iterable<SampleTree> xs) {
     final candidates = xs.map((st) => gen.runGen(st));
+
+    var counterexamples = List<N>.empty(growable: true);
 
     for (final (a, shrunk) in candidates) {
       switch (prop(a)) {
@@ -16,21 +21,28 @@ Explanation<P, N> shrink<A, P, N>(Gen<A> gen, (P, Iterable<SampleTree>) start,
           counterexamples.add(n);
         case ValidShrink(shrunk: final p):
           history.add(p);
-          return shrunk.toList();
+          return ShrunkTo<P, N>(p, shrunk);
       }
     }
 
-    return [];
-  }
+    return DoneShrinking<P, N>(counterexamples);
+  };
 
-  var (initial, shrunk) = start;
-  var counterexamples = List<N>.empty(growable: true);
+  final go = (Iterable<SampleTree> shrunk) {
+    while (!shrunk.isEmpty) {
+      switch (greedy(shrunk)) {
+        case DoneShrinking(counterexamples: final ns):
+          return ns;
+        case ShrunkTo(value: _, shrunk: final shrunk1):
+          shrunk = shrunk1;
+      }
+    }
+    return List<N>.empty();
+  };
 
-  while (!shrunk.isEmpty) {
-    counterexamples = List.empty(growable: true);
-    shrunk = greedy(counterexamples, shrunk.toList());
-  }
-  
+  final (initial, shrunk) = start;
+  final counterexamples = go(shrunk);
+
   return Explanation(initial, history, counterexamples);
 }
 
@@ -54,6 +66,21 @@ class InvalidShrink<P, N> implements IsValidShrink<P, N> {
   final N counterexample;
 }
 
+sealed class ShrinkStep<P, N> {}
+
+class DoneShrinking<P, N> implements ShrinkStep<P, N> {
+  DoneShrinking(this.counterexamples);
+  final List<N> counterexamples;
+}
+
+class ShrunkTo<P, N> implements ShrinkStep<P, N> {
+  ShrunkTo(this.value, this.shrunk);
+
+  final P value;
+  final Iterable<SampleTree> shrunk;
+}
+
+/*
 Gen<A> shrinkToOneOf<A>(A x, List<A> xs) {
   Iterable<BigInt> shrinker(Sample x) => switch (x) {
         Shrunk(value: _) => [],
@@ -76,3 +103,4 @@ typedef Marked<A> = (bool, Gen<A>);
 
 Gen<Marked<A>> mark<A>(Gen<A> gen) =>
     firstThen(true, false).map((marked) => (marked, gen));
+*/

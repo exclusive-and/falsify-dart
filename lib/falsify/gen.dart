@@ -2,11 +2,14 @@ import 'dart:core';
 import 'package:falsify/prelude.dart';
 import 'sample.dart';
 import 'search.dart';
+import 'shrink.dart' as falsify;
 
-class Gen<A> {
-  Gen(this.runGen);
+class Gen<A> implements falsify.RunGen<A> {
+  Gen(this._runGen);
 
-  final (A, Iterable<SampleTree>) Function(SampleTree) runGen;
+  (A, Iterable<SampleTree>) runGen(SampleTree st) => _runGen(st);
+
+  final (A, Iterable<SampleTree>) Function(SampleTree) _runGen;
 
   static Gen<A> pure<A>(A x) => Gen((_) => (x, []));
 }
