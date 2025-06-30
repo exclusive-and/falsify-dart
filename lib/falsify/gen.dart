@@ -53,11 +53,21 @@ class ApGen<A, B> implements Gen<B> {
   final Gen<A> mx;
   final Gen<B Function(A)> mf;
 
+  /*
   (B, Iterable<SampleTree>) runGen(SampleTree st) {
-    final (x, ls) = mx.runGen(st);
-    final (f, rs) = mf.runGen(st);
+    final (f, ls) = mf.runGen(st.left());
+    final (x, rs) = mx.runGen(st.right());
     return (f(x), st.combineShrunk(ls, rs));
   }
+  */
+
+  (B, Iterable<SampleTree>) runGen(SampleTree st) {
+    return mf.bind((f) => mx.bind((x) => Gen.pure(f(x)))).runGen(st);
+  }
+}
+
+extension ApplicativeGen<A> on Gen<A> {
+  Gen<B> ap<B>(Gen<B Function(A)> mf) => ApGen(this, mf);
 }
 
 class BindGen<A, B> implements Gen<B> {
@@ -83,26 +93,39 @@ class TraversalGen<A, B> implements Gen<Iterable<B>> {
   final Iterable<A> tx;
   final Gen<B> Function(A) f;
 
+  /*
   (Iterable<B>, Iterable<SampleTree>) runGen(SampleTree st) {
     var st1 = st;
-    var acc = List<(B, SampleTree, Iterable<SampleTree>)>.empty(growable: true);
+    var acc = List<(SampleTree, Iterable<SampleTree>)>.empty(growable: true);
+    var ys = List<B>.empty(growable: true);
 
     for (final x in tx) {
       final (y, ls) = f(x).runGen(st1.left());
-      acc.add((y, st1, ls));
+      ys.add(y);
+      acc.add((st1, ls));
       st1 = st1.right();
     }
-    ;
 
     var rs = Iterable<SampleTree>.empty();
-    var ys = List<B>.empty(growable: true);
 
-    for (final (y, st2, ls) in acc.reversed) {
-      ys.add(y);
+    for (final (st2, ls) in acc.reversed) {
       rs = st2.combineShrunk(ls, rs);
     }
 
     return (ys, rs);
+  }
+  */
+
+  (Iterable<B>, Iterable<SampleTree>) runGen(SampleTree st) {
+    return sequenceA(tx.map(f)).runGen(st);
+  }
+
+  static Gen<Iterable<A>> sequenceA<A>(Iterable<Gen<A>> gens) {
+    var xs1 = Gen.pure(Iterable<A>.empty());
+    for (final gen in gens.toList().reversed) {
+      xs1 = xs1.ap(gen.map((x) => (xs) => [x].followedBy(xs)));
+    }
+    return xs1;
   }
 }
 
@@ -149,20 +172,23 @@ class ChoiceGen<A> implements Gen<A> {
   final Gen<A> my;
 
   (A, Iterable<SampleTree>) runGen(SampleTree st) {
-    final (b, ls) = mb.runGen(st.left());
+    final left = st.left();
     final right = st.right();
+    final (b, ls) = mb.runGen(left.left());
     if (b) {
-      final (x, rs) = mx.runGen(right.left());
-      return (x, st.combineShrunk(ls, right.combineShrunk(rs, [])));
+      final (x, rs) = mx.runGen(left.right());
+      return (x, st.combineShrunk(left.combineShrunk(ls, rs), []));
     } else {
-      final (y, rs) = my.runGen(right.right());
-      return (y, st.combineShrunk(ls, right.combineShrunk(rs, [])));
+      final (y, rs) = my.runGen(right);
+      return (y, st.combineShrunk(left.combineShrunk(ls, []), rs));
     }
   }
 }
 
 extension SelectiveIfGen on Gen<bool> {
   Gen<A> ifS<A>(Gen<A> t, Gen<A> f) => ChoiceGen(this, t, f);
+      // this.map<Either<(), ()>>((b) => b ? Left(()) : Right(()))
+      //    .branch(t.map((x) => (y) => x), f.map((x) => (y) => (x)));
 }
 
 class ShrinkToOneOfGen<A> implements Gen<A> {
@@ -234,12 +260,12 @@ class RangeGen implements Gen<BigInt> {
     final precision = step.bitLength;
 
     final factor = BigInt.two.pow(precision);
-    final s = st.next.value & (factor - BigInt.one);
+    final s = st.next.value.toUnsigned(precision);
 
     final shrinks =
         binarySearch(s).map((t) => SampleTree1(Shrunk(t), st.left, st.right));
 
-    return (min + ((s * step) ~/ factor), shrinks);
+    return (min + BigInt.from(s * step / factor), shrinks);
   }
 }
 
@@ -266,7 +292,7 @@ class ListGen<A> implements Gen<Iterable<A>> {
     final (len, ls) = inRange(0, length).runGen(st.left());
 
     final gen1 = List.filled(len, mark(gen)).sequence();
-    final gen2 = gen1.bind((g) => g.traverse(keepIfMarked)).map(catMaybes);
+    final gen2 = gen1.bind((g) => g.traverse(keepIfMarked)).map((xs) => xs.toList().reversed).map(catMaybes);
     final (xs, rs) = gen2.runGen(st.right());
 
     return (xs, st.combineShrunk(ls, rs));

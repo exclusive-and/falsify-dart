@@ -4,6 +4,8 @@ Iterable<BigInt> binarySearch(BigInt x) sync* {
   var current = BigInt.zero;
   var delta = x ~/ BigInt.two;
 
+  yield current;
+
   while (delta > BigInt.one) {
     current += delta;
 
@@ -15,5 +17,5 @@ Iterable<BigInt> binarySearch(BigInt x) sync* {
     yield current;
   }
 
-  if (delta == BigInt.one) yield BigInt.one;
+  if (delta == BigInt.one) yield current + BigInt.one;
 }
